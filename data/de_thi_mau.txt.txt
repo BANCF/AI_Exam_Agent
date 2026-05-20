@@ -1,0 +1,17 @@
+Tên bài: Đếm số cặp đôi (PAIR)
+Cốt truyện: Trong đợt tuyển chọn học sinh giỏi Tin học, ban tổ chức yêu cầu giải quyết bài toán đếm cặp. Cho một dãy số A gồm N phần tử. Hãy đếm số lượng cặp chỉ số (i, j) sao cho i < j và tổng A[i] + A[j] đúng bằng một số K cho trước.
+Đầu vào (Input):
+- Dòng đầu tiên chứa hai số nguyên dương N và K (1 <= N <= 10^5, 1 <= K <= 10^9).
+- Dòng thứ hai chứa N số nguyên A[1], A[2], ..., A[N] (1 <= A[i] <= 10^9).
+Đầu ra (Output): 
+- In ra một số nguyên duy nhất là số lượng cặp thỏa mãn điều kiện.
+Giới hạn (Constraints) & Subtask:
+- Subtask 1 (50% số điểm): N <= 10^3. Thuật toán O(N^2) có thể vượt qua.
+- Subtask 2 (50% số điểm): N <= 10^5. Yêu cầu thuật toán tối ưu O(N log N) hoặc O(N).
+Ví dụ (Sample Input/Output):
+Input:
+5 6
+1 5 3 3 2
+Output:
+3
+Giải thích ví dụ: Các cặp (i, j) thỏa mãn là (1, 2) vì A[1]+A[2] = 1+5=6; (3, 4) vì A[3]+A[4] = 3+3=6.

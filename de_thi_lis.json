@@ -1,0 +1,26 @@
+{
+    "title": "Mật mã cổ đại (ANCIENT)",
+    "legend": "Trong chuyến thám hiểm kim tự tháp cổ đại Ai Cập, nhà khảo cổ học nổi tiếng **An** đã tìm thấy một bức tường đá bí ẩn khắc một dãy gồm $N$ số nguyên: $A_1, A_2, \\dots, A_N$. \n\nĐể mở cánh cửa dẫn vào lăng mộ chứa báu vật của Pharaon, An cần tìm ra một chuỗi các ký tự số trên bức tường tạo thành một **\"mật mã hài hòa\"**.\n\nMột dãy con thu được bằng cách chọn ra các phần tử từ dãy ban đầu và giữ nguyên thứ tự xuất hiện $A_{i_1}, A_{i_2}, \\dots, A_{i_k}$ (với $1 \\le i_1 < i_2 < \\dots < i_k \\le N$) được gọi là một **mật mã hài hòa** nếu nó thỏa mãn điều kiện: hiệu của hai phần tử liên tiếp bất kỳ trong dãy con này phải lớn hơn hoặc bằng một hằng số $D$ cho trước. Nói cách khác:\n$$A_{i_{j+1}} - A_{i_j} \\ge D \\quad \\text{với mọi } 1 \\le j < k$$\n\nAn muốn tìm mật mã hài hòa có độ dài lớn nhất (tức là số lượng phần tử $k$ là nhiều nhất) để kích hoạt cơ quan mở cửa lăng mộ. Bạn hãy viết chương trình giúp An tìm ra độ dài lớn nhất này nhé!",
+    "input_format": "Dòng đầu tiên chứa hai số nguyên dương $N$ và $D$ ($1 \\le N \\le 10^5$, $1 \\le D \\le 10^9$).\nDòng thứ hai chứa $N$ số nguyên $A_1, A_2, \\dots, A_N$ ($1 \\le A_i \\le 10^9$).",
+    "output_format": "In ra một số nguyên duy nhất là độ dài lớn nhất của mật mã hài hòa tìm được.",
+    "constraints": "Subtask 1 (40% số điểm): $N \\le 10^3$ và $D \\le 10^9$.\nSubtask 2 (30% số điểm): $N \\le 10^5$ và $D = 1$.\nSubtask 3 (30% số điểm): $N \\le 10^5$ và $D \\le 10^9$.",
+    "c_plus_plus_solution": "#include <iostream>\n#include <vector>\n#include <algorithm>\n\nusing namespace std;\n\nstruct Fenwick {\n    int n;\n    vector<int> tree;\n    Fenwick(int n) : n(n), tree(n + 1, 0) {}\n    void update(int i, int val) {\n        for (; i <= n; i += i & -i) {\n            tree[i] = max(tree[i], val);\n        }\n    }\n    int query(int i) {\n        int res = 0;\n        for (; i > 0; i -= i & -i) {\n            res = max(res, tree[i]);\n        }\n        return res;\n    }\n};\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    int n;\n    long long d;\n    if (!(cin >> n >> d)) return 0;\n    vector<long long> a(n);\n    vector<long long> u;\n    for (int i = 0; i < n; ++i) {\n        cin >> a[i];\n        u.push_back(a[i]);\n    }\n    sort(u.begin(), u.end());\n    u.erase(unique(u.begin(), u.end()), u.end());\n    \n    int m = u.size();\n    Fenwick bit(m);\n    int ans = 0;\n    for (int i = 0; i < n; ++i) {\n        long long limit = a[i] - d;\n        auto it = upper_bound(u.begin(), u.end(), limit);\n        int idx = distance(u.begin(), it);\n        int dp_val = bit.query(idx) + 1;\n        ans = max(ans, dp_val);\n        \n        int a_idx = lower_bound(u.begin(), u.end(), a[i]) - u.begin() + 1;\n        bit.update(a_idx, dp_val);\n    }\n    cout << ans << \"\\n\";\n    return 0;\n}",
+    "python_solution": "import sys\nimport bisect\n\ndef solve():\n    input = sys.stdin.read\n    data = input().split()\n    if not data:\n        return\n    n = int(data[0])\n    d = int(data[1])\n    a = [int(x) for x in data[2:]]\n    \n    u = sorted(list(set(a)))\n    m = len(u)\n    \n    tree = [0] * (m + 1)\n    \n    def update(i, val):\n        while i <= m:\n            if val > tree[i]:\n                tree[i] = val\n            i += i & -i\n            \n    def query(i):\n        res = 0\n        while i > 0:\n            if tree[i] > res:\n                res = tree[i]\n            i -= i & -i\n        return res\n        \n    ans = 0\n    for val in a:\n        limit = val - d\n        idx = bisect.bisect_right(u, limit)\n        dp_val = query(idx) + 1\n        if dp_val > ans:\n            ans = dp_val\n        \n        a_idx = bisect.bisect_left(u, val) + 1\n        update(a_idx, dp_val)\n        \n    print(ans)\n\nif __name__ == '__main__':\n    solve()",
+    "test_cases": [
+        {
+            "input_data": "6 3\n2 5 1 8 6 11",
+            "output_data": "4",
+            "explanation": "Dãy con thỏa mãn điều kiện là: [2, 5, 8, 11] (tương ứng với các chỉ số 1, 2, 4, 6 trong dãy gốc). Hiệu giữa các phần tử liên tiếp: 5 - 2 = 3 >= 3; 8 - 5 = 3 >= 3; 11 - 8 = 3 >= 3. Độ dài của dãy con này là 4, đây là độ dài lớn nhất có thể đạt được."
+        },
+        {
+            "input_data": "5 5\n10 2 12 7 17",
+            "output_data": "3",
+            "explanation": "Dãy con thỏa mãn có độ dài lớn nhất là 3, ví dụ như dãy con [2, 7, 17] (chỉ số 2, 4, 5) hoặc [10, 12, 17] (chỉ số 1, 3, 5)."
+        },
+        {
+            "input_data": "8 10\n100 10 20 30 15 40 50 25",
+            "output_data": "5",
+            "explanation": "Dãy con thỏa mãn có độ dài lớn nhất là 5, ví dụ như dãy con [10, 20, 30, 40, 50] (chỉ số 2, 3, 4, 6, 7). Hiệu của các phần tử liên tiếp đều bằng 10 >= 10."
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+# Bỏ qua các file môi trường và API
+.env
+
+# Bỏ qua cơ sở dữ liệu lịch sử và RAG
+exam_history.db
+chroma_db/
+
+# Bỏ qua file rác của Python
+__pycache__/
+*.pyc
+
+# Bỏ qua các file sinh ra từ người dùng tải về
+*.docx
+*.zip
+*.json
