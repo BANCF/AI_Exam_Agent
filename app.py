@@ -2,7 +2,7 @@ import os
 import json
 import streamlit as st
 
-# Import các hàm sức mạnh từ 3 file module chúng ta vừa tạo
+# Import các hàm sức mạnh từ 3 file module
 from utils import init_db, save_to_db, load_history, validate_python_code
 from export_tools import create_word_document, create_themis_zip
 from ai_core import generate_exam, generate_test_script
@@ -11,35 +11,81 @@ from ai_core import generate_exam, generate_test_script
 init_db()
 
 # ==========================================
-# GIAO DIỆN WEB VỚI STREAMLIT
+# CẤU HÌNH TRANG & CSS XÓA KHOẢNG TRẮNG
 # ==========================================
 st.set_page_config(page_title="Hệ Thống Đề Thi - SmartEdu", layout="wide", page_icon="📝")
 
-# --- SIDEBAR: CẤU HÌNH API KEY TỪ NGƯỜI DÙNG ---
-st.sidebar.header("🔐 Cấu hình Hệ thống")
-st.sidebar.markdown("Vui lòng cung cấp API Key để sử dụng tài nguyên suy luận của AI.")
-user_api_key = st.sidebar.text_input("Nhập Gemini API Key của bạn:", type="password")
+st.markdown("""
+    <style>
+    /* Tăng khoảng cách lề trên để các Tab không bị cắt cụt đầu */
+    .block-container {
+        padding-top: 3.5rem; 
+        padding-bottom: 2rem;
+    }
+    
+    /* Ẩn các nút rác của Streamlit nhưng giữ lại Header trong suốt để không mất nút Sidebar */
+    #MainMenu {visibility: hidden;}
+    .stAppDeployButton {display: none;}
+    header {background-color: transparent !important;}
+    
+    /* Trang trí lại thanh Tab cho chuẩn giao diện hiện đại */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 45px;
+        border-radius: 6px 6px 0px 0px;
+        padding: 10px 16px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: rgba(255, 75, 75, 0.1);
+        border-bottom: 2px solid #FF4B4B;
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-if user_api_key:
-    os.environ["GEMINI_API_KEY"] = user_api_key
-    st.sidebar.success("✅ Đã ghi nhận API Key!")
-else:
-    st.sidebar.warning("⚠️ Hệ thống đang chờ khóa API.")
-
-# --- QUẢN LÝ TRẠNG THÁI ---
+# ==========================================
+# QUẢN LÝ TRẠNG THÁI (SESSION STATE)
+# ==========================================
 if "exam_cart" not in st.session_state:
     st.session_state.exam_cart = []
 if "current_problem" not in st.session_state:
     st.session_state.current_problem = None
 
-# --- GIAO DIỆN CHÍNH ---
-st.title("🤖 Hệ Thống Trí Tuệ Nhân Tạo Biên Soạn Đề Thi")
-st.markdown("Sinh bài tập chuẩn VNOI/Codeforces, tự động viết script test cho Themis/CMS.")
+# ==========================================
+# SIDEBAR: GỌN GÀNG & CHUYÊN NGHIỆP
+# ==========================================
+with st.sidebar:
+    st.title("🤖 AutoExam AI")
+    st.caption("Hệ thống biên soạn đề thi Tin học tự động")
+    st.divider()
+    
+    st.subheader("🔐 Cấu hình API")
+    st.markdown("Vui lòng cung cấp API Key để sử dụng tài nguyên AI.")
+    user_api_key = st.text_input("Nhập Gemini API Key của bạn:", type="password")
+    
+    if user_api_key:
+        os.environ["GEMINI_API_KEY"] = user_api_key
+        st.success("✅ Đã ghi nhận API Key!")
+    else:
+        st.warning("⚠️ Hệ thống đang chờ khóa API.")
+        st.markdown("[👉 Lấy API Key miễn phí tại đây](https://aistudio.google.com/app/apikey)")
+    
+    st.divider()
+    st.subheader("📦 Đề Thi Của Bạn")
+    st.info(f"Số lượng câu hỏi trong đề: **{len(st.session_state.exam_cart)}**")
+    if st.button("🗑️ Xóa làm lại đề", use_container_width=True):
+        st.session_state.exam_cart = []
+        st.rerun()
 
-col1, col2 = st.columns([1, 2.5])
+# ==========================================
+# GIAO DIỆN CHÍNH
+# ==========================================
+col_left, col_right = st.columns([1, 2.5])
 
-with col1:
-    st.header("⚙️ Sáng tác câu hỏi mới")
+with col_left:
+    st.header("⚙️ Sáng tác mới")
     
     danh_sach_chu_de = [
         "🔹 TOÁN HỌC CƠ BẢN", 
@@ -55,18 +101,11 @@ with col1:
     
     btn_tao_de = st.button("🚀 Yêu cầu AI sáng tác", use_container_width=True, type="primary")
 
-    st.divider()
-    st.header("📦 Đề Thi Của Bạn")
-    st.metric("Số lượng câu hỏi trong đề:", len(st.session_state.exam_cart))
-    if st.button("🗑️ Xóa làm lại đề", use_container_width=True):
-        st.session_state.exam_cart = []
-        st.rerun()
-
-with col2:
+with col_right:
     # XỬ LÝ NÚT BẤM TẠO ĐỀ
     if btn_tao_de:
         if not user_api_key:
-            st.error("🔒 Bạn phải nhập API Key ở cột bên trái!")
+            st.error("🔒 Bạn phải nhập API Key ở thanh bên trái!")
         else:
             with st.spinner(f"AI đang biên soạn bài toán..."):
                 try:
@@ -78,10 +117,21 @@ with col2:
                     
                     # Gọi hàm từ utils.py để lưu DB
                     save_to_db(parsed_problem.get('title', 'Untitled'), parsed_problem)
+                    
                 except Exception as e:
-                    st.error(f"Lỗi hệ thống: {e}")
+                    error_msg = str(e).lower()
+                    # BẮT LỖI QUOTA 429
+                    if "429" in error_msg or "resource_exhausted" in error_msg or "quota" in error_msg:
+                        st.error("⏳ **API Key này đã hết hạn mức sử dụng tạm thời!**")
+                        st.warning("💡 **Cách khắc phục:**\n1. Vui lòng đợi khoảng 1 phút rồi thử lại.\n2. Hoặc **nhập một API Key mới** ở thanh bên trái để tiếp tục ngay lập tức.")
+                    # BẮT LỖI PARSE JSON
+                    elif "json" in error_msg:
+                        st.error("⚠️ AI vừa trả về kết quả không chuẩn định dạng. Vui lòng bấm tạo lại!")
+                    # CÁC LỖI KHÁC
+                    else:
+                        st.error(f"Lỗi hệ thống không xác định: {e}")
 
-    # CHIA TABS GIAO DIỆN
+    # CHIA TABS GIAO DIỆN HIỂN THỊ
     tab1, tab2, tab3, tab4 = st.tabs(["📖 Câu hỏi hiện tại", "💻 Dữ liệu JSON", "📑 ĐỀ THI TỔNG HỢP", "🗄️ NGÂN HÀNG ĐỀ"])
     
     if st.session_state.current_problem:
@@ -144,7 +194,7 @@ with col2:
 
     else:
         with tab1:
-            st.info("👈 Hãy nhập API Key, chọn chủ đề và bấm 'Yêu cầu AI sáng tác' để bắt đầu.")
+            st.info("👈 Hãy nhập API Key, chọn chủ đề và bấm 'Yêu cầu AI sáng tác' ở cột bên trái để bắt đầu.")
 
     # TAB 3: QUẢN LÝ ĐỀ THI
     with tab3:
@@ -180,8 +230,14 @@ with col2:
                                     
                                     st.session_state.exam_cart[idx]["generator_script"] = script_code
                             st.success("Tuyệt vời! Đã lập trình xong các file Generator.")
+                            
                         except Exception as e:
-                            st.error(f"Lỗi hệ thống. Chi tiết: {e}")
+                            error_msg = str(e).lower()
+                            if "429" in error_msg or "resource_exhausted" in error_msg or "quota" in error_msg:
+                                st.error(f"⏳ **Hệ thống quá tải khi đang xử lý đến bài số {idx + 1}. API Key đã hết hạn mức!**")
+                                st.warning("💡 Vui lòng nhập API Key mới ở thanh bên, sau đó bấm nút này lần nữa (hệ thống sẽ tự động chạy tiếp các bài chưa làm).")
+                            else:
+                                st.error(f"Lỗi hệ thống: {e}")
 
             st.divider()
             st.markdown("### 📥 Tải xuống Đề Thi & Đáp Án")
@@ -221,7 +277,7 @@ with col2:
     # TAB 4: NGÂN HÀNG ĐỀ (SQLITE CACHE)
     with tab4:
         st.subheader("🗄️ Lịch sử các bài toán đã tạo")
-        st.markdown("Các bài toán này được lưu an toàn trong máy tính của bạn (Cơ sở dữ liệu SQLite).")
+        st.markdown("Các bài toán này được lưu an toàn trong hệ thống máy chủ.")
         
         # Gọi hàm tải DB từ utils.py
         history_rows = load_history()

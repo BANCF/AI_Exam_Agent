@@ -1,6 +1,6 @@
 streamlit
 python-docx
-crewai
+crewai[google-genai]
 langchain-chroma
 langchain-huggingface
 pydantic
