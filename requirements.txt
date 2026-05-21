@@ -1,0 +1,6 @@
+streamlit
+python-docx
+crewai
+langchain-chroma
+langchain-huggingface
+pydantic
