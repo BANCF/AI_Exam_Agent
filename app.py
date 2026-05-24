@@ -149,16 +149,19 @@ else:
         st.divider()
         
         st.subheader("🔐 Cấu hình API")
+        st.markdown("Vui lòng cung cấp API Key để sử dụng tài nguyên AI.")
         user_api_key = st.text_input("Nhập Gemini API Key của bạn:", type="password")
+        
+        # 👉 CẬP NHẬT TẠI ĐÂY: Thêm gemini/2.5-pro vào danh sách chọn
+        st.session_state.ai_model = st.selectbox(
+            "🧠 Chọn phiên bản AI:",
+            ["gemini/2.5-pro", "gemini/3.5-flash", "gemini/2.5-flash", "gemini/2.5-flash-lite"],
+            index=["gemini/2.5-pro", "gemini/3.5-flash", "gemini/2.5-flash", "gemini/2.5-flash-lite"].index(st.session_state.ai_model)
+        )
         
         if user_api_key:
             os.environ["GEMINI_API_KEY"] = user_api_key
             st.success("✅ Đã ghi nhận API Key!")
-            st.session_state.ai_model = st.selectbox(
-                "🧠 Chọn phiên bản AI:",
-                ["gemini/3.5-flash", "gemini/2.5-flash", "gemini/2.5-flash-lite"],
-                index=0
-            )
         else:
             st.warning("⚠️ Hệ thống đang chờ khóa API.")
             st.markdown("[👉 Lấy API Key miễn phí tại đây](https://aistudio.google.com/app/apikey)")

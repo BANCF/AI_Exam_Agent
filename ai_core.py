@@ -1,6 +1,7 @@
 import os
 import json
 from crewai import Agent, Task, Crew, LLM
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # ==========================================
 # KHỞI TẠO BỘ NÃO AI (LLM) ĐÃ ĐƯỢC FIX TRIỆT ĐỂ
@@ -16,18 +17,27 @@ def create_llm(model_name="gemini/3.5-flash"):
 
     # Chuẩn hóa tên model để tránh lỗi nhận diện cấu trúc hệ thống
     # CrewAI yêu cầu định dạng: "gemini/tên_model_gốc"
-    if "3.5" in model_name:
+    
+    # 👉 THÊM ĐIỀU KIỆN CHO DÒNG PRO TẠI ĐÂY
+    if "2.5-pro" in model_name or "2.5-pro" in model_name:
+        target_model = "gemini/gemini-2.5-pro"
+        current_temp = 0.2  # Mô hình suy luận toán học cần temp thấp để tránh "bốc phét" số liệu
+    elif "3.5" in model_name:
         target_model = "gemini/gemini-3.5-flash"
+        current_temp = 0.5  
     elif "2.5-flash-lite" in model_name:
         target_model = "gemini/gemini-2.5-flash-lite"
+        current_temp = 0.5
     elif "2.5-flash" in model_name:
         target_model = "gemini/gemini-2.5-flash"
+        current_temp = 0.5
     else:
         target_model = "gemini/gemini-1.5-flash" # Bản dự phòng ổn định nhất
+        current_temp = 0.5
 
     return LLM(
         model=target_model,
-        temperature=0.7,
+        temperature=current_temp,  # Áp dụng mức nhiệt độ động tương ứng với từng dòng model
         api_key=api_key
     )
 
@@ -51,13 +61,19 @@ def generate_exam(topic_name, difficulty, model_name="gemini/3.5-flash"):
         Sáng tác MỘT (01) bài toán lập trình thi đấu duy nhất. 
         Chủ đề: {topic_name}. Mức độ: {difficulty}.
         
+        👉 QUY TRÌNH TƯ DUY RỜI RẠC (CHAIN-OF-THOUGHT) BẮT BUỘC:
+        Trước khi viết chuỗi JSON kết quả, bạn phải tự chạy các bước phân tích và lập luận ngầm sau đây:
+        - Bước 1: Xác định thuật toán tối ưu nhất cho chủ đề này (Ví dụ: Quy hoạch động, Cây phân đoạn Segment Tree, hay Tham lam).
+        - Bước 2: Xác định rõ ràng vị trí của các "bẫy biên". Nếu mảng toàn số 0, mảng có 1 phần tử, hoặc số âm thì thuật toán tối ưu có bị chạy sai không?
+        - Bước 3: Lên kế hoạch phân bổ con số cho chính xác 10 testcases. Đảm bảo các Test 8, 9, 10 phải có giá trị số lớn chạm sát cấu hình `long long` trong C++ ($10^{18}$) để kiểm tra xem học sinh có biết tối ưu kiểu dữ liệu hay không.
+
         YÊU CẦU NGHIÊM NGẶT VỀ THIẾT KẾ ĐỀ THI:
         1. Cấu trúc trường "constraints": Bắt buộc phải phân tách giới hạn dữ liệu rõ ràng thành 3 Subtask kèm theo tỷ lệ điểm cụ thể như sau để cấu hình hệ thống chấm tự động:
            - Subtask 1 (40% số điểm): Giới hạn dữ liệu cực nhỏ (Ví dụ: N <= 100 hoặc N <= 15) dành cho thuật toán duyệt trâu/vét cạn/quay lui.
            - Subtask 2 (30% số điểm): Giới hạn dữ liệu trung bình (Ví dụ: N <= 10^5) dành cho thuật toán tối ưu xấp xỉ O(N) hoặc O(N log N).
-           - Subtask 3 (30% số điểm): Giới hạn dữ liệu kịch trần (Ví dụ: N <= 10^9 hoặc 10^18) hoặc các trường hợp đặc biệt cực hạn, đòi hỏi xử lý bẫy tràn số (dùng long long trong C++), tối ưu bộ nhớ hoặc thuật toán toán học nâng cao.
+           - Subtask 3 (30% số điểm): Giới hạn dữ liệu kịch trần (Ví dụ: N <= 10^9 hoặc 10^18) hoặc các trường hợp đặc biệt cực hạn, đòi hỏi xử lý bẫy tràn số, tối ưu bộ nhớ hoặc thuật toán toán học nâng cao.
         
-        2. Cấu trúc mảng "test_cases": Bắt buộc phải sinh ra chính xác ĐỦ MƯỜI (10) TESTCASES mẫu (không được ít hơn). Dữ liệu của 10 testcase này phải được phân bổ nghiêm ngặt để kiểm thử trực tiếp 3 Subtask trên theo đúng tỷ lệ:
+        2. Cấu trúc mảng "test_cases": Bắt buộc phải sinh ra chính xác ĐỦ MƯỜI (10) TESTCASES mẫu. Dữ liệu của 10 testcase này phải được phân bổ nghiêm ngặt để kiểm thử trực tiếp 3 Subtask trên theo đúng tỷ lệ:
            - Test 1 đến Test 4: Dữ liệu thuộc phạm vi Subtask 1.
            - Test 5 đến Test 7: Dữ liệu thuộc phạm vi Subtask 2.
            - Test 8 đến Test 10: Dữ liệu kịch trần kịch khung của Subtask 3, đồng thời chủ động chèn các test bẫy biên (Ví dụ: mảng toàn số âm, số lớn nhất, số nhỏ nhất, dữ liệu rỗng hoặc không có kết quả) để test độ chặt chẽ của code học sinh.
@@ -70,56 +86,16 @@ def generate_exam(topic_name, difficulty, model_name="gemini/3.5-flash"):
             "output_format": "Định dạng dữ liệu ra (Ví dụ: In ra một số nguyên duy nhất...)",
             "constraints": "Mô tả chi tiết giới hạn và ràng buộc của từng Subtask 1, 2, 3 kèm tỷ lệ điểm cụ thể như yêu cầu bên trên",
             "test_cases": [
-                {{
-                    "input_data": "dữ liệu test 1 (Subtask 1)",
-                    "output_data": "kết quả chuẩn 1",
-                    "explanation": "giải thích quá trình tính toán test này"
-                }},
-                {{
-                    "input_data": "dữ liệu test 2 (Subtask 1)",
-                    "output_data": "kết quả chuẩn 2",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 3 (Subtask 1)",
-                    "output_data": "kết quả chuẩn 3",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 4 (Subtask 1)",
-                    "output_data": "kết quả chuẩn 4",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 5 (Subtask 2)",
-                    "output_data": "kết quả chuẩn 5",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 6 (Subtask 2)",
-                    "output_data": "kết quả chuẩn 6",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 7 (Subtask 2)",
-                    "output_data": "kết quả chuẩn 7",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 8 (Subtask 3 - Biên bẫy)",
-                    "output_data": "kết quả chuẩn 8",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 9 (Subtask 3 - Biên bẫy)",
-                    "output_data": "kết quả chuẩn 9",
-                    "explanation": "giải thích"
-                }},
-                {{
-                    "input_data": "dữ liệu test 10 (Subtask 3 - Dữ liệu kịch trần cực đại)",
-                    "output_data": "kết quả chuẩn 10",
-                    "explanation": "giải thích"
-                }}
+                {{"input_data": "dữ liệu test 1 (Subtask 1)", "output_data": "kết quả chuẩn 1", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 2 (Subtask 1)", "output_data": "kết quả chuẩn 2", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 3 (Subtask 1)", "output_data": "kết quả chuẩn 3", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 4 (Subtask 1)", "output_data": "kết quả chuẩn 4", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 5 (Subtask 2)", "output_data": "kết quả chuẩn 5", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 6 (Subtask 2)", "output_data": "kết quả chuẩn 6", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 7 (Subtask 2)", "output_data": "kết quả chuẩn 7", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 8 (Subtask 3 - Biên bẫy)", "output_data": "kết quả chuẩn 8", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 9 (Subtask 3 - Biên bẫy)", "output_data": "kết quả chuẩn 9", "explanation": "giải thích"}},
+                {{"input_data": "dữ liệu test 10 (Subtask 3 - Dữ liệu kịch trần cực đại)", "output_data": "kết quả chuẩn 10", "explanation": "giải thích"}}
             ],
             "hints": ["Gợi ý 1", "Gợi ý 2"],
             "editorial": "Hướng dẫn thuật toán chi tiết và độ phức tạp thời gian không gian tối ưu để ăn trọn điểm cả 3 subtask",
@@ -127,19 +103,20 @@ def generate_exam(topic_name, difficulty, model_name="gemini/3.5-flash"):
             "python_solution": "Mã nguồn Python mẫu chuẩn chỉnh, xử lý được dữ liệu cực đại của Subtask 3"
         }}
         ''',
-        expected_output='Chuỗi JSON hợp lệ chứa toàn bộ thông tin bài toán có đầy đủ 3 subtask và cấu trúc chính xác 10 testcases.',
+        expected_output='Chuỗi JSON hợp lệ chứa toàn bộ thông tin bài toán có đầy đủ 3 subtask và cấu trúc chính xác 10 testcases sau khi đã chạy qua quy trình tư duy Chain-of-Thought.',
         agent=exam_creator
     )
 
+    # Thêm memory=True vào Crew để lưu trữ chuỗi tư duy logic giữa Agent và Task
     crew = Crew(
         agents=[exam_creator],
         tasks=[create_task],
+        memory=True,
         verbose=False
     )
 
     result = crew.kickoff()
     return result.raw
-
 # ==========================================
 # LUỒNG 2: LẬP TRÌNH SCRIPT TẠO TEST CASE
 # ==========================================
@@ -193,6 +170,7 @@ def generate_test_script(problem_json, folder_name, model_name="gemini/3.5-flash
     crew = Crew(
         agents=[script_coder],
         tasks=[coding_task],
+        memory=True,
         verbose=False
     )
 
