@@ -1,27 +1,22 @@
 import os
 import json
 from crewai import Agent, Task, Crew, LLM
-from langchain_google_genai import ChatGoogleGenerativeAI
-
+ 
 # ==========================================
 # KHỞI TẠO BỘ NÃO AI (LLM) ĐÃ ĐƯỢC FIX TRIỆT ĐỂ
 # ==========================================
 def create_llm(model_name="gemini/3.5-flash"):
     """
     Khởi tạo mô hình AI chuẩn hóa theo quy định của CrewAI và Google.
-    Giải quyết triệt để lỗi 'Unable to initialize LLM'.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("Lỗi hệ thống: Không tìm thấy API Key. Vui lòng cấu hình ở thanh bên trái!")
 
-    # Chuẩn hóa tên model để tránh lỗi nhận diện cấu trúc hệ thống
-    # CrewAI yêu cầu định dạng: "gemini/tên_model_gốc"
-    
-    # 👉 THÊM ĐIỀU KIỆN CHO DÒNG PRO TẠI ĐÂY
-    if "2.5-pro" in model_name or "2.5-pro" in model_name:
+    # Chuẩn hóa tên model theo cú pháp CrewAI "gemini/gemini-..."
+    if "2.5-pro" in model_name:
         target_model = "gemini/gemini-2.5-pro"
-        current_temp = 0.2  # Mô hình suy luận toán học cần temp thấp để tránh "bốc phét" số liệu
+        current_temp = 0.2  
     elif "3.5" in model_name:
         target_model = "gemini/gemini-3.5-flash"
         current_temp = 0.5  
@@ -32,12 +27,12 @@ def create_llm(model_name="gemini/3.5-flash"):
         target_model = "gemini/gemini-2.5-flash"
         current_temp = 0.5
     else:
-        target_model = "gemini/gemini-1.5-flash" # Bản dự phòng ổn định nhất
+        target_model = "gemini/gemini-1.5-flash"
         current_temp = 0.5
 
     return LLM(
         model=target_model,
-        temperature=current_temp,  # Áp dụng mức nhiệt độ động tương ứng với từng dòng model
+        temperature=current_temp,
         api_key=api_key
     )
 
