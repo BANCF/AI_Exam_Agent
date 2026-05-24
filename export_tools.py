@@ -1,5 +1,6 @@
 import io
 import zipfile
+import json
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -73,16 +74,53 @@ def create_word_document(exam_data_list):
     byte_io.seek(0)
     return byte_io
 
-def create_themis_zip(exam_data_list):
+def create_themis_zip(exam_cart):
+    """
+    Tự động đóng gói toàn bộ danh sách câu hỏi trong đề thành 
+    cấu trúc thư mục Test01, Test02... chuẩn phần mềm chấm Themis.
+    """
+    # Tạo một file zip ảo nằm trong bộ nhớ RAM
     zip_buffer = io.BytesIO()
+    
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for idx, prob in enumerate(exam_data_list):
-            folder_name = prob.get('title', f'BAI{idx+1}').split()[0].upper()
-            zip_file.writestr(f"{folder_name}/{folder_name}.cpp", prob.get("c_plus_plus_solution", ""))
-            zip_file.writestr(f"{folder_name}/{folder_name}.py", prob.get("python_solution", ""))
-            if gen_script := prob.get("generator_script", ""):
-                zip_file.writestr(f"{folder_name}/generator.py", gen_script)
-                bat_content = f"@echo off\ncd /d %~dp0\necho Dang sinh 10 Test Cases cho {folder_name}...\npython generator.py\npause"
-                zip_file.writestr(f"{folder_name}/make_test.bat", bat_content)
-    zip_buffer.seek(0)
-    return zip_buffer
+        for idx, problem in enumerate(exam_cart):
+            # 1. Chuẩn hóa tên bài: Lấy từ đầu tiên của tiêu đề, viết hoa (Ví dụ: "BÀI 1: TỔNG" -> "BAI1")
+            raw_title = problem.get("title", f"BAI{idx+1}")
+            # Loại bỏ dấu tiếng Việt và ký tự đặc biệt để làm tên folder/file sạch
+            folder_name = raw_title.split()[0].replace(":", "").upper()
+            
+            # Khởi tạo đường dẫn thư mục gốc của bài toán trong file ZIP
+            base_path = f"{folder_name}/"
+            
+            # 2. Đóng gói mã nguồn giải mẫu trực tiếp vào folder gốc của bài
+            cpp_solution = problem.get("c_plus_plus_solution", "")
+            python_solution = problem.get("python_solution", "")
+            
+            if cpp_solution:
+                zip_file.writestr(f"{base_path}{folder_name}.cpp", cpp_solution)
+            if python_solution:
+                zip_file.writestr(f"{base_path}{folder_name}.py", python_solution)
+            if "generator_script" in problem:
+                zip_file.writestr(f"{base_path}generator.py", problem["generator_script"])
+                
+            # 3. Duyệt qua mảng các Test Cases sinh ra từ AI hoặc từ file Generator
+            test_cases = problem.get("test_cases", [])
+            for tc_idx, tc in enumerate(test_cases):
+                # Định dạng tên folder test theo chuẩn: Test01, Test02, Test03...
+                test_folder_name = f"Test{list_index_to_str(tc_idx + 1)}"
+                test_path = f"{base_path}{test_folder_name}/"
+                
+                # Lấy dữ liệu Input/Output text tương ứng
+                input_data = tc.get("input_data", "").strip()
+                output_data = tc.get("output_data", "").strip()
+                
+                # Ghi thẳng vào file .INP và .OUT đặt trong folder Test tương ứng
+                zip_file.writestr(f"{test_path}{folder_name}.INP", input_data)
+                zip_file.writestr(f"{test_path}{folder_name}.OUT", output_data)
+                
+    # Trả về chuỗi dữ liệu nhị phân chuẩn bị cho nút bấm st.download_button nạp tải
+    return zip_buffer.getvalue()
+
+def list_index_to_str(index):
+    """Hàm bổ trợ chuyển số 1 -> '01', 9 -> '09', 10 -> '10' để đặt tên folder chuẩn"""
+    return f"0{index}" if index < 10 else str(index)
