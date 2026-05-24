@@ -7,6 +7,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import clean_latex_for_word
 
 def create_word_document(exam_data_list):
+    """Tạo file Word ĐỀ THI CHÍNH THỨC (Không chứa lời giải)"""
     doc = Document()
     p_header = doc.add_paragraph()
     p_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -58,7 +59,9 @@ def create_word_document(exam_data_list):
         doc.add_paragraph(clean_latex_for_word(prob.get('constraints', '')))
         
         doc.add_heading('Ví dụ (Sample Test Cases):', level=3)
-        for i, tc in enumerate(prob.get("test_cases", [])):
+        # Chỉ lấy tối đa 2 testcase đầu tiên làm ví dụ minh họa trong đề thi
+        sample_tests = prob.get("test_cases", [])[:2]
+        for i, tc in enumerate(sample_tests):
             doc.add_paragraph(f"Ví dụ {i+1}:", style='List Bullet')
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
@@ -72,27 +75,92 @@ def create_word_document(exam_data_list):
     byte_io = io.BytesIO()
     doc.save(byte_io)
     byte_io.seek(0)
-    return byte_io
+    return byte_io.getvalue()
+
+
+def create_editorial_document(exam_data_list):
+    """Tạo file Word ĐÁP ÁN & HƯỚNG DẪN CHẤM CHI TIẾT (Dành riêng cho giáo viên)"""
+    doc = Document()
+    p_header = doc.add_paragraph()
+    p_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run_so = p_header.add_run('SỞ GIÁO DỤC VÀ ĐÀO TẠO HÀ NỘI\n')
+    run_so.font.name = 'Times New Roman'; run_so.font.size = Pt(13)
+    run_title = p_header.add_run('HƯỚNG DẪN CHẤM - ĐÁP ÁN KỲ THI HỌC SINH GIỎI\n')
+    run_title.bold = True; run_title.font.name = 'Times New Roman'; run_title.font.size = Pt(15)
+    doc.add_paragraph('________________________').alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph("\n")
+
+    for idx, prob in enumerate(exam_data_list):
+        doc.add_heading(f"BÀI {idx + 1}: {prob.get('title', 'Bài toán')}", level=1)
+        
+        # 1. Hướng dẫn thuật toán (Editorial)
+        doc.add_heading('1. Ý tưởng giải thuật & Đánh giá độ phức tạp:', level=3)
+        doc.add_paragraph(clean_latex_for_word(prob.get('editorial', 'Chưa cập nhật hướng dẫn giải thuật.')))
+        
+        # 2. Gợi ý làm bài (Hints)
+        doc.add_heading('2. Các bước gợi ý tư duy (Hints):', level=3)
+        hints = prob.get('hints', [])
+        if hints:
+            for i, hint in enumerate(hints):
+                doc.add_paragraph(f"- Gợi ý {i+1}: {clean_latex_for_word(hint)}")
+        else:
+            doc.add_paragraph("Không có gợi ý bổ sung.")
+
+        # 3. Đáp án Code C++ mẫu
+        doc.add_heading('3. Chương trình giải mẫu bằng C++:', level=3)
+        cpp_code = prob.get('c_plus_plus_solution', '')
+        if cpp_code:
+            p_cpp = doc.add_paragraph()
+            r_cpp = p_cpp.add_run(cpp_code)
+            r_cpp.font.name = 'Courier New'; r_cpp.font.size = Pt(10)
+        else:
+            doc.add_paragraph("Chưa cấu hình code C++ mẫu.")
+
+        # 4. Đáp án Code Python mẫu
+        doc.add_heading('4. Chương trình giải mẫu bằng Python:', level=3)
+        py_code = prob.get('python_solution', '')
+        if py_code:
+            p_py = doc.add_paragraph()
+            r_py = p_py.add_run(py_code)
+            r_py.font.name = 'Courier New'; r_py.font.size = Pt(10)
+        else:
+            doc.add_paragraph("Chưa cấu hình code Python mẫu.")
+
+        if idx < len(exam_data_list) - 1: doc.add_page_break()
+
+    byte_io = io.BytesIO()
+    doc.save(byte_io)
+    byte_io.seek(0)
+    return byte_io.getvalue()
+
 
 def create_themis_zip(exam_cart):
     """
-    Tự động đóng gói toàn bộ danh sách câu hỏi trong đề thành 
-    cấu trúc thư mục Test01, Test02... chuẩn phần mềm chấm Themis.
+    Tự động đóng gói toàn bộ danh sách câu hỏi trong đề thành:
+    - File Đề bài Word sạch.
+    - File Hướng dẫn giải + Đáp án Word.
+    - Cấu trúc thư mục Test01 -> Test10 chuẩn phần mềm chấm Themis.
     """
-    # Tạo một file zip ảo nằm trong bộ nhớ RAM
     zip_buffer = io.BytesIO()
     
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for idx, problem in enumerate(exam_cart):
-            # 1. Chuẩn hóa tên bài: Lấy từ đầu tiên của tiêu đề, viết hoa (Ví dụ: "BÀI 1: TỔNG" -> "BAI1")
-            raw_title = problem.get("title", f"BAI{idx+1}")
-            # Loại bỏ dấu tiếng Việt và ký tự đặc biệt để làm tên folder/file sạch
-            folder_name = raw_title.split()[0].replace(":", "").upper()
+        
+        # --- BƯỚC THÊM MỚI: Sinh tài liệu văn bản lưu vào gốc File ZIP ---
+        if exam_cart:
+            # Sinh file Đề bài Word không đáp án
+            de_bai_bytes = create_word_document(exam_cart)
+            zip_file.writestr("De_Bai_Chinh_Thuc.docx", de_bai_bytes)
             
-            # Khởi tạo đường dẫn thư mục gốc của bài toán trong file ZIP
+            # Sinh file Đáp án + Lời giải Word độc lập
+            dap_an_bytes = create_editorial_document(exam_cart)
+            zip_file.writestr("Huong_Dan_Cham_Va_Dap_An.docx", dap_an_bytes)
+        
+        # --- BƯỚC CŨ: Đóng gói cấu trúc Thư mục chấm test tự động ---
+        for idx, problem in enumerate(exam_cart):
+            raw_title = problem.get("title", f"BAI{idx+1}")
+            folder_name = raw_title.split()[0].replace(":", "").upper()
             base_path = f"{folder_name}/"
             
-            # 2. Đóng gói mã nguồn giải mẫu trực tiếp vào folder gốc của bài
             cpp_solution = problem.get("c_plus_plus_solution", "")
             python_solution = problem.get("python_solution", "")
             
@@ -103,22 +171,17 @@ def create_themis_zip(exam_cart):
             if "generator_script" in problem:
                 zip_file.writestr(f"{base_path}generator.py", problem["generator_script"])
                 
-            # 3. Duyệt qua mảng các Test Cases sinh ra từ AI hoặc từ file Generator
             test_cases = problem.get("test_cases", [])
             for tc_idx, tc in enumerate(test_cases):
-                # Định dạng tên folder test theo chuẩn: Test01, Test02, Test03...
                 test_folder_name = f"Test{list_index_to_str(tc_idx + 1)}"
                 test_path = f"{base_path}{test_folder_name}/"
                 
-                # Lấy dữ liệu Input/Output text tương ứng
                 input_data = tc.get("input_data", "").strip()
                 output_data = tc.get("output_data", "").strip()
                 
-                # Ghi thẳng vào file .INP và .OUT đặt trong folder Test tương ứng
                 zip_file.writestr(f"{test_path}{folder_name}.INP", input_data)
                 zip_file.writestr(f"{test_path}{folder_name}.OUT", output_data)
                 
-    # Trả về chuỗi dữ liệu nhị phân chuẩn bị cho nút bấm st.download_button nạp tải
     return zip_buffer.getvalue()
 
 def list_index_to_str(index):
