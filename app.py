@@ -157,9 +157,9 @@ else:
             "🧠 Chọn phiên bản AI:",
             ["gemini/2.5-pro", "gemini/3.5-flash", "gemini/2.5-flash", "gemini/2.5-flash-lite"],
             index=["gemini/2.5-pro", "gemini/3.5-flash", "gemini/2.5-flash", "gemini/2.5-flash-lite"].index(
-    st.session_state.get("ai_model", "gemini/3.5-flash")
+                st.session_state.get("ai_model", "gemini/3.5-flash")
+            )
         )
-        
         if user_api_key:
             os.environ["GEMINI_API_KEY"] = user_api_key
             st.success("✅ Đã ghi nhận API Key!")
